@@ -10,31 +10,36 @@
 
 // Variáveis de controle do sistema.
 pthread_mutex_t mutTacho = PTHREAD_MUTEX_INITIALIZER;
-            
+
 pthread_cond_t  cozinheiroCond,
                 convidadoCond;
 
 // Variáveis de controle da lógica.
 sem_t *paellasNoTacho;
-int exit = 0;
+int saida = 0;
 
 // Variáveis de análise.
 int tachosFeitos = 0,
     numRefeicoes = 0,
     numTotalRefeicoes = 0;
 
+void *Cozinheiro();
+void *Convidado();
+
 void main(){
 
-    // Variáveis de criação.
+    /* Variáveis de criação.*/
     pthread_t   cozinheiro,
                 convidado[NUMERODECONVIDADOS];
 
-    //Criar todas as threads;   
+    /*Criar todas as threads; */
     pthread_create(&cozinheiro, NULL, Cozinheiro, &paellasNoTacho);
-    for(int i = 0 ; i < NUMERODECONVIDADOS ; ++i){ pthread_create(&convidado[i], NULL, Convidado, i); }
+    for(int i = 0 ; i < NUMERODECONVIDADOS ; ++i){
+        pthread_create(&convidado[i], NULL, Convidado, i);
+    }
 
-    //acao final do rei para medir tudo
-    /*
+    /*acao final do rei para medir tudo*/
+/*
     while(){
         sleep (3) ;
         pthread_mutex_lock (&mut) ;
@@ -64,9 +69,10 @@ void main(){
 
 
 //Convidado---------------------
+
 void *Convidado(int threadIndice){
     pthread_mutex_lock(&mutTacho);
-    while(!exit || sem_getvalue(paellasNoTacho, NULL) > 0){
+    while(!saida || sem_getvalue(paellasNoTacho, NULL) > 0){
         if(sem_getvalue(paellasNoTacho, NULL) > 0){
             servir(pthread_self, threadIndice);
             pthread_mutex_unlock(&mutTacho);
@@ -75,7 +81,7 @@ void *Convidado(int threadIndice){
             pthread_mutex_unlock(&mutTacho);
             chamar_cozinheiro(pthread_self, threadIndice);
         }
-        pthread_cond_wait(&convidadoCond, NULL);
+        pthread_cond_wait(&convidadoCond, &mutTacho);
     }
     pthread_exit(NULL);
 }
@@ -98,8 +104,9 @@ void chamar_cozinheiro(int threadID, int threadIndice){
 //Convidado---------------------
 
 //Cozinheiro---------------------
+
 void *Cozinheiro(){
-    while(!exit){
+    while(!saida){
         if(sem_getvalue(paellasNoTacho, NULL) == 0){
             preparar_comida(pthread_self);
             encher_tacho(pthread_self);
@@ -119,7 +126,9 @@ void encher_tacho(int threadID){
     pthread_mutex_lock(&mutTacho);
     printf("Thread: %d (Cozinheiro) - trocando tacho da mesa...", threadID);
     sleep(2*UMTEMPO);
-    for(int i = 0 ; i < PAELLASPORTACHO ; ++i){sem_post(paellasNoTacho);}
+    for(int i = 0 ; i < PAELLASPORTACHO ; ++i){
+        sem_post(paellasNoTacho);
+    }
     tachosFeitos++;
     pthread_mutex_unlock(&mutTacho);
 }
@@ -131,6 +140,6 @@ void avisar_corte(int threadID){
 
 void voltar_cozinha(int threadID){
     printf("Thread: %d (Cozinheiro) - voltando a cozinha...", threadID);
-    pthread_cond_wait(&cozinheiroCond, NULL);
+    pthread_cond_wait(&cozinheiroCond, &mutTacho);
 }
 //Cozinheiro---------------------
